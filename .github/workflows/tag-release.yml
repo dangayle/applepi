@@ -38,3 +38,8 @@ jobs:
           git tag -a "v$CURR" -m "v$CURR"
           git push origin "v$CURR"
           echo "Tagged v$CURR"
+
+          # Trigger the publish workflow. Tags pushed by GITHUB_TOKEN don't
+          # trigger `on: push: tags` in other workflows, so we dispatch it
+          # explicitly.
+          gh workflow run publish.yml --ref "v$CURR"
