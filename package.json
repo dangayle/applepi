@@ -19,9 +19,12 @@
       "./extensions/applepi/index.ts"
     ]
   },
-  "devDependencies": {
+  "peerDependencies": {
     "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
     "@sinclair/typebox": "^0.34.0",
     "@types/node": "^25.8.0",
     "typescript": "^5.8.0",
