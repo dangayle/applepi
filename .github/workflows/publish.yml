@@ -22,17 +22,14 @@ jobs:
       # `_authToken=${NODE_AUTH_TOKEN}`, which makes npm use token auth and
       # skip OIDC trusted publishing entirely. npm publishes to the default
       # registry (registry.npmjs.org) without it.
-      # Node 22.14+ required for npm trusted publishing.
+      # Node 24 ships with npm 11.x+ which supports OIDC trusted publishing.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22.14.0"
+          node-version: 24
           cache: pnpm
 
       # pnpm publish does not yet support OIDC trusted publishing (see
       # pnpm/pnpm#9812), so we shell out to npm for the upload step.
-      # Trusted publishing requires npm CLI >= 11.5.1; Node 22 ships with
-      # npm 10.x, so upgrade explicitly.
-      - run: npm install --global npm@latest
 
       - run: pnpm install --frozen-lockfile
 
