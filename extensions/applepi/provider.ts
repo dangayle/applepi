@@ -47,6 +47,9 @@ async function* streamAppleIntelligence(
     yield { type: "start", partial: output };
 
     const prompt = extractPrompt(context.messages);
+    if (!prompt) {
+      throw new Error("No user message found in the conversation context.");
+    }
     const input: BridgeInput = {
       prompt,
       ...(context.systemPrompt ? { system_prompt: context.systemPrompt } : {}),

@@ -39,12 +39,6 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
       system_prompt: Type.Optional(
         Type.String({ description: "System prompt for context/persona" })
       ),
-      stream: Type.Optional(
-        Type.Boolean({
-          description: "Stream response token-by-token",
-          default: false,
-        })
-      ),
       permissive: Type.Optional(
         Type.Boolean({
           description: "Use permissive guardrails (reduces false positives)",
@@ -62,7 +56,6 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
       const input: BridgeInput = {
         prompt: params.prompt,
         system_prompt: params.system_prompt,
-        stream: params.stream ?? false,
         permissive: params.permissive,
         temperature: params.temperature ?? null,
         max_tokens: params.max_tokens ?? null,

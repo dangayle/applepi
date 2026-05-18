@@ -117,6 +117,38 @@ describe("createProviderConfig", () => {
     expect(errorEvent.error.errorMessage).toContain("Model unavailable");
   });
 
+  test("streamSimple throws on empty prompt (no user messages)", async () => {
+    const config = createProviderConfig(mockBridge);
+
+    const model = {
+      id: "apple-intelligence",
+      api: "apple-intelligence-api",
+      provider: "apple-intelligence",
+      baseUrl: "",
+      maxTokens: 4096,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as any;
+
+    const context = {
+      messages: [{ role: "assistant", content: "I am a bot" }],
+      systemPrompt: "",
+    } as any;
+
+    const stream = config.streamSimple(model, context);
+
+    const events: any[] = [];
+    for await (const event of stream) {
+      events.push(event);
+    }
+
+    const errorEvent = events.find((e: any) => e.type === "error");
+    expect(errorEvent).toBeTruthy();
+    expect(errorEvent.error.errorMessage).toContain(
+      "No user message found in the conversation context."
+    );
+    expect(mockBridge.run).not.toHaveBeenCalled();
+  });
+
   test("streamSimple extracts last user message as prompt", async () => {
     const config = createProviderConfig(mockBridge);
 

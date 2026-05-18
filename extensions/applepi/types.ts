@@ -80,6 +80,16 @@ const ERROR_MESSAGES: Record<string, string> = {
     "This device doesn't support Apple Intelligence. Requires Apple Silicon (M1+) with macOS 26+.",
   timeout:
     "On-device model timed out (30s). The model may be loading — try again.",
+  rate_limited:
+    "On-device model is rate limited. Wait a moment and try again.",
+  concurrent_requests:
+    "Another generation is already in progress. Wait and retry.",
+  unsupported_locale:
+    "The current language or locale is not supported by the on-device model.",
+  decoding_failure:
+    "Failed to decode model output. Try simplifying the request.",
+  unsupported_guide:
+    "The generation guide/schema is not supported.",
 };
 
 const DEFAULT_ERROR_MESSAGE =

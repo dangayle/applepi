@@ -12,7 +12,7 @@ enum SchemaGeneration {
         }
 
         // Serialize the schema to include in the system prompt
-        let schemaData = try jsonEncoder.encode(schema.mapValues { AnyCodable($0) })
+        let schemaData = try jsonEncoder.encode(schema)
         let schemaString = String(data: schemaData, encoding: .utf8) ?? "{}"
 
         let systemPrompt = """

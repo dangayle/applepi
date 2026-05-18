@@ -44,6 +44,36 @@ describe("types", () => {
         "An unknown error occurred in the Apple Intelligence bridge."
       );
     });
+
+    test("returns message for rate_limited error code", () => {
+      expect(bridgeErrorMessage("rate_limited")).toBe(
+        "On-device model is rate limited. Wait a moment and try again."
+      );
+    });
+
+    test("returns message for concurrent_requests error code", () => {
+      expect(bridgeErrorMessage("concurrent_requests")).toBe(
+        "Another generation is already in progress. Wait and retry."
+      );
+    });
+
+    test("returns message for unsupported_locale error code", () => {
+      expect(bridgeErrorMessage("unsupported_locale")).toBe(
+        "The current language or locale is not supported by the on-device model."
+      );
+    });
+
+    test("returns message for decoding_failure error code", () => {
+      expect(bridgeErrorMessage("decoding_failure")).toBe(
+        "Failed to decode model output. Try simplifying the request."
+      );
+    });
+
+    test("returns message for unsupported_guide error code", () => {
+      expect(bridgeErrorMessage("unsupported_guide")).toBe(
+        "The generation guide/schema is not supported."
+      );
+    });
   });
 
   describe("type shapes (compile-time checks)", () => {
