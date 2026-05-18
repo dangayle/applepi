@@ -1,0 +1,7 @@
+node_modules/
+dist/
+bridge/.build/
+.DS_Store
+*.swp
+*.swo
+coverage/
