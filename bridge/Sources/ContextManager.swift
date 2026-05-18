@@ -1,16 +1,24 @@
 import Foundation
 import FoundationModels
 
-/// Manages token budgeting and prompt truncation using Apple's real token counting APIs.
+/// Manages token budgeting and prompt truncation for Apple's on-device model.
 ///
 /// Implements Apple TN3193: "Managing the on-device foundation model's context window"
-/// - Uses `contextSize` for the real window size (not hardcoded)
-/// - Uses `tokenCount(for:)` for exact token measurement
+/// - Uses the known 4096-token context window (Apple TN3193)
+/// - Uses heuristic token estimation (~4 chars per token)
 /// - Truncates prompts with head+tail strategy before they hit the model
+/// - Falls back to catching `exceededContextWindowSize` errors at the call site
+///
+/// Note: The FoundationModels SDK does not expose `contextSize` or `tokenCount(for:)`
+/// on SystemLanguageModel. Token budgeting uses heuristic estimation, with the
+/// framework's own `exceededContextWindowSize` error as a safety net.
 ///
 /// This is the single enforcement point — any caller of the bridge gets protection.
 @available(macOS 26.0, *)
 enum ContextManager {
+
+    /// Known context window size for Apple's on-device model (Apple TN3193).
+    static let contextWindowSize = 4096
 
     /// Tokens reserved for the model's response. Must leave enough room for a useful answer.
     static let responseReserve = 1024
@@ -28,15 +36,10 @@ enum ContextManager {
         let availableForResponse: Int
     }
 
-    /// Returns the model's context window size, with a safe fallback.
-    static var contextSize: Int {
-        SystemLanguageModel.default.contextSize ?? 4096
-    }
-
     /// Prepares a prompt to fit within the context window.
     ///
     /// Steps (per Apple TN3193):
-    /// 1. Measure token cost of instructions (system prompt)
+    /// 1. Estimate token cost of instructions (system prompt)
     /// 2. Compute available budget for the user prompt
     /// 3. Truncate the prompt with head+tail if it exceeds the budget
     /// 4. Return metadata about the budget for diagnostics
@@ -44,21 +47,19 @@ enum ContextManager {
         prompt: String,
         instructions: Instructions?
     ) async -> PreparedPrompt {
-        let model = SystemLanguageModel.default
-        let ctxSize = contextSize
+        let ctxSize = contextWindowSize
 
-        // Measure instruction tokens (if any)
+        // Estimate instruction tokens (if any)
         var instructionTokens = 0
         if let instructions {
-            instructionTokens = (try? await model.tokenCount(for: instructions)) ?? 0
+            instructionTokens = estimateTokens(String(describing: instructions))
         }
 
         // Budget for the prompt = total - instructions - response reserve
         let availableForPrompt = max(0, ctxSize - instructionTokens - responseReserve)
 
-        // Measure the actual prompt token count
-        let promptInstructions = Instructions(prompt)
-        let promptTokens = (try? await model.tokenCount(for: promptInstructions)) ?? estimateTokens(prompt)
+        // Estimate the actual prompt token count
+        let promptTokens = estimateTokens(prompt)
 
         if promptTokens <= availableForPrompt {
             // Fits — no truncation needed
@@ -75,9 +76,8 @@ enum ContextManager {
         // Truncate with head+tail strategy
         let truncated = truncate(text: prompt, toFitTokens: availableForPrompt)
 
-        // Re-measure after truncation
-        let truncatedInstructions = Instructions(truncated)
-        let truncatedTokens = (try? await model.tokenCount(for: truncatedInstructions)) ?? estimateTokens(truncated)
+        // Re-estimate after truncation
+        let truncatedTokens = estimateTokens(truncated)
 
         return PreparedPrompt(
             prompt: truncated,
@@ -110,8 +110,10 @@ enum ContextManager {
         return head + truncationMarker + tail
     }
 
-    /// Fallback token estimation when the API call fails (~4 chars per token).
-    private static func estimateTokens(_ text: String) -> Int {
+    /// Heuristic token estimation (~4 chars per token).
+    /// This is the only estimation method available since the SDK does not expose
+    /// a token counting API on SystemLanguageModel.
+    static func estimateTokens(_ text: String) -> Int {
         guard !text.isEmpty else { return 0 }
         return (text.count + 3) / 4  // ceiling division
     }
