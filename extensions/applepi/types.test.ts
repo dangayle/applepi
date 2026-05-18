@@ -7,6 +7,8 @@ import {
   type BridgeError,
   type BridgeBenchmarkOutput,
   type BridgeAvailabilityOutput,
+  type BridgeContextSizeOutput,
+  type BridgeTokenCountOutput,
   BRIDGE_EXIT_CODES,
   bridgeErrorMessage,
 } from "./types.js";
@@ -171,6 +173,16 @@ describe("types", () => {
         reason: "apple_intelligence_not_enabled",
       };
       expect(avail.available).toBe(false);
+    });
+
+    test("BridgeContextSizeOutput shape", () => {
+      const output: BridgeContextSizeOutput = { context_size: 4096 };
+      expect(output.context_size).toBe(4096);
+    });
+
+    test("BridgeTokenCountOutput shape", () => {
+      const output: BridgeTokenCountOutput = { token_count: 42 };
+      expect(output.token_count).toBe(42);
     });
   });
 });

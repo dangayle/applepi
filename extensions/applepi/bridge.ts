@@ -7,6 +7,8 @@ import type {
   BridgeStreamEvent,
   BridgeBenchmarkOutput,
   BridgeAvailabilityOutput,
+  BridgeContextSizeOutput,
+  BridgeTokenCountOutput,
 } from "./types.js";
 import { BRIDGE_EXIT_CODES, bridgeErrorMessage } from "./types.js";
 
@@ -165,6 +167,23 @@ export class BridgeManager {
       "--benchmark",
     ]);
     return this.handleResult<BridgeBenchmarkOutput>(stdout, stderr, exitCode);
+  }
+
+  /** Returns the model's context window size in tokens */
+  async contextSize(): Promise<number> {
+    const { stdout, stderr, exitCode } = await this.spawnBridge(["--context-size"]);
+    const result = this.handleResult<BridgeContextSizeOutput>(stdout, stderr, exitCode);
+    return result.context_size;
+  }
+
+  /** Returns the token count for a given text string */
+  async tokenCount(text: string): Promise<number> {
+    const { stdout, stderr, exitCode } = await this.spawnBridge(
+      ["--token-count"],
+      text
+    );
+    const result = this.handleResult<BridgeTokenCountOutput>(stdout, stderr, exitCode);
+    return result.token_count;
   }
 
   /** Runs a generation request with streaming, yielding events as they arrive */

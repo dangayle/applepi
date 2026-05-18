@@ -66,8 +66,11 @@ function streamAppleIntelligence(
       if (!prompt) {
         throw new Error("No user message found in the conversation context.");
       }
+
       // Always use the minimal system prompt — Pi's system prompt contains
-      // tool definitions and project context that overflow the 4096-token window
+      // tool definitions and project context that overflow the 4096-token window.
+      // Token budgeting and truncation is handled by the Swift bridge using
+      // Apple's real tokenCount(for:) API (TN3193).
       const input: BridgeInput = {
         prompt,
         system_prompt: MINIMAL_SYSTEM_PROMPT,
