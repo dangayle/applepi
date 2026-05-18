@@ -28,7 +28,20 @@ enum SchemaGeneration {
         let session = LanguageModelSession(instructions: instructions)
         let response = try await session.respond(to: input.prompt)
 
-        let content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        var content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Strip markdown code fences if the model wrapped its JSON in them
+        if content.hasPrefix("```") {
+            // Remove opening fence (```json or ```)
+            if let firstNewline = content.firstIndex(of: "\n") {
+                content = String(content[content.index(after: firstNewline)...])
+            }
+            // Remove closing fence
+            if content.hasSuffix("```") {
+                content = String(content.dropLast(3))
+            }
+            content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
 
         // Try to parse as JSON to populate the structured field
         var structured: [String: AnyCodable]? = nil
