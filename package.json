@@ -2,7 +2,9 @@
   "name": "applepi",
   "version": "0.1.0",
   "description": "On-device Apple Intelligence as a Pi tool and model provider",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -13,13 +15,16 @@
     "bridge:clean": "cd bridge && swift package clean"
   },
   "pi": {
-    "extensions": ["./extensions/applepi/index.ts"]
+    "extensions": [
+      "./extensions/applepi/index.ts"
+    ]
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
     "@sinclair/typebox": "^0.34.0",
-    "vitest": "^3.2.1",
-    "typescript": "^5.8.0"
+    "@types/node": "^25.8.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.1"
   }
 }
