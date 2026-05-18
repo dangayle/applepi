@@ -55,18 +55,39 @@ async function* streamAppleIntelligence(
       ...(context.systemPrompt ? { system_prompt: context.systemPrompt } : {}),
     };
 
-    const result = await bridge.run(input);
-
-    output.usage.input = result.prompt_tokens;
-    output.usage.output = result.completion_tokens;
-    output.usage.totalTokens = result.prompt_tokens + result.completion_tokens;
-
-    output.content.push({ type: "text", text: result.content });
     const contentIndex = 0;
+    let textStarted = false;
+    let fullContent = "";
 
-    yield { type: "text_start", contentIndex, partial: output };
-    yield { type: "text_delta", contentIndex, delta: result.content, partial: output };
-    yield { type: "text_end", contentIndex, content: result.content, partial: output };
+    for await (const event of bridge.stream(input)) {
+      if (event.type === "delta") {
+        if (!textStarted) {
+          output.content.push({ type: "text", text: "" });
+          yield { type: "text_start", contentIndex, partial: output };
+          textStarted = true;
+        }
+        fullContent += event.content;
+        output.content[contentIndex].text = fullContent;
+        yield { type: "text_delta", contentIndex, delta: event.content, partial: output };
+      } else if (event.type === "done") {
+        fullContent = event.content;
+        output.usage.input = event.prompt_tokens;
+        output.usage.output = event.completion_tokens;
+        output.usage.totalTokens = event.prompt_tokens + event.completion_tokens;
+
+        if (!textStarted) {
+          output.content.push({ type: "text", text: fullContent });
+          yield { type: "text_start", contentIndex, partial: output };
+          textStarted = true;
+        }
+        output.content[contentIndex].text = fullContent;
+      }
+    }
+
+    if (textStarted) {
+      yield { type: "text_end", contentIndex, content: fullContent, partial: output };
+    }
+
     yield { type: "done", reason: "stop", message: output };
   } catch (error) {
     output.stopReason = "error";

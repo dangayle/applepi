@@ -12,6 +12,7 @@ describe("createProviderConfig", () => {
       run: vi.fn(),
       check: vi.fn(),
       benchmark: vi.fn(),
+      stream: vi.fn(),
       ensureBinary: vi.fn(),
       getBinaryPath: vi.fn().mockReturnValue("/fake/path"),
       isBinaryBuilt: vi.fn().mockReturnValue(true),
@@ -46,12 +47,17 @@ describe("createProviderConfig", () => {
   test("streamSimple emits start, text, and done events", async () => {
     const config = createProviderConfig(mockBridge);
 
-    vi.mocked(mockBridge.run).mockResolvedValue({
-      content: "Hello world",
-      prompt_tokens: 5,
-      completion_tokens: 2,
-      finish_reason: "stop",
-    });
+    const mockStream = (async function* () {
+      yield { type: "delta" as const, content: "Hello world" };
+      yield {
+        type: "done" as const,
+        content: "Hello world",
+        prompt_tokens: 5,
+        completion_tokens: 2,
+        finish_reason: "stop",
+      };
+    })();
+    vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
 
     const model = {
       id: "apple-intelligence",
@@ -87,9 +93,10 @@ describe("createProviderConfig", () => {
   test("streamSimple emits error event on failure", async () => {
     const config = createProviderConfig(mockBridge);
 
-    vi.mocked(mockBridge.run).mockRejectedValue(
-      new Error("Model unavailable")
-    );
+    const mockStream = (async function* () {
+      throw new Error("Model unavailable");
+    })();
+    vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
 
     const model = {
       id: "apple-intelligence",
@@ -147,17 +154,23 @@ describe("createProviderConfig", () => {
       "No user message found in the conversation context."
     );
     expect(mockBridge.run).not.toHaveBeenCalled();
+    expect((mockBridge as any).stream).not.toHaveBeenCalled();
   });
 
   test("streamSimple extracts last user message as prompt", async () => {
     const config = createProviderConfig(mockBridge);
 
-    vi.mocked(mockBridge.run).mockResolvedValue({
-      content: "Response",
-      prompt_tokens: 10,
-      completion_tokens: 1,
-      finish_reason: "stop",
-    });
+    const mockStream = (async function* () {
+      yield { type: "delta" as const, content: "Response" };
+      yield {
+        type: "done" as const,
+        content: "Response",
+        prompt_tokens: 10,
+        completion_tokens: 1,
+        finish_reason: "stop",
+      };
+    })();
+    vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
 
     const model = {
       id: "apple-intelligence",
@@ -183,11 +196,101 @@ describe("createProviderConfig", () => {
       events.push(event);
     }
 
-    expect(mockBridge.run).toHaveBeenCalledWith(
+    expect((mockBridge as any).stream).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "Second message",
         system_prompt: "You are helpful",
       })
     );
+  });
+
+  test("streamSimple yields incremental text_delta events from bridge.stream", async () => {
+    const config = createProviderConfig(mockBridge);
+
+    const mockStream = (async function* () {
+      yield { type: "delta" as const, content: "Hel" };
+      yield { type: "delta" as const, content: "lo " };
+      yield { type: "delta" as const, content: "world" };
+      yield {
+        type: "done" as const,
+        content: "Hello world",
+        prompt_tokens: 5,
+        completion_tokens: 3,
+        finish_reason: "stop",
+      };
+    })();
+
+    vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
+
+    const model = {
+      id: "apple-intelligence",
+      api: "apple-intelligence-api",
+      provider: "apple-intelligence",
+      baseUrl: "",
+      maxTokens: 4096,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as any;
+
+    const context = {
+      messages: [{ role: "user", content: "Hi" }],
+      systemPrompt: "Be helpful",
+    } as any;
+
+    const stream = config.streamSimple(model, context);
+
+    const events: any[] = [];
+    for await (const event of stream) {
+      events.push(event);
+    }
+
+    // Should have: start, text_start, 3x text_delta, text_end, done
+    const deltas = events.filter((e: any) => e.type === "text_delta");
+    expect(deltas).toHaveLength(3);
+    expect(deltas[0].delta).toBe("Hel");
+    expect(deltas[1].delta).toBe("lo ");
+    expect(deltas[2].delta).toBe("world");
+
+    const doneEvent = events.find((e: any) => e.type === "done");
+    expect(doneEvent.message.usage.input).toBe(5);
+    expect(doneEvent.message.usage.output).toBe(3);
+    expect(doneEvent.message.content[0].text).toBe("Hello world");
+  });
+
+  test("streamSimple calls bridge.stream not bridge.run", async () => {
+    const config = createProviderConfig(mockBridge);
+
+    const mockStream = (async function* () {
+      yield {
+        type: "done" as const,
+        content: "ok",
+        prompt_tokens: 1,
+        completion_tokens: 1,
+        finish_reason: "stop",
+      };
+    })();
+
+    vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
+
+    const model = {
+      id: "apple-intelligence",
+      api: "apple-intelligence-api",
+      provider: "apple-intelligence",
+      baseUrl: "",
+      maxTokens: 4096,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as any;
+
+    const context = {
+      messages: [{ role: "user", content: "Hi" }],
+      systemPrompt: "",
+    } as any;
+
+    const stream = config.streamSimple(model, context);
+    for await (const _event of stream) {
+      // consume
+    }
+
+    expect((mockBridge as any).stream).toHaveBeenCalled();
+    expect(mockBridge.run).not.toHaveBeenCalled();
   });
 });
