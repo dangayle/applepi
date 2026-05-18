@@ -8,6 +8,7 @@
     "on-device-ai",
     "foundationmodels"
   ],
+  "packageManager": "pnpm@10.33.0",
   "license": "MIT",
   "type": "module",
   "repository": {
