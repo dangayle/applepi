@@ -12,18 +12,24 @@ const BINARY_PATH = resolve(BRIDGE_DIR, ".build/release/applepi-bridge");
  * This catches API mismatches against the FoundationModels SDK that
  * unit tests miss (since they mock the bridge binary).
  *
- * Skipped when Swift is not available (e.g. Linux CI).
+ * Skipped when the FoundationModels framework is not available.
+ * Linux runners may have Swift installed but lack Apple's SDK frameworks,
+ * so checking `swift --version` alone is not sufficient.
  */
-const hasSwift = (() => {
+const hasFoundationModels = (() => {
   try {
-    execSync("swift --version", { stdio: "pipe" });
+    // A quick compile check — if FoundationModels can be imported, we're on macOS with the right SDK.
+    execSync(
+      'echo "import FoundationModels" | swiftc -typecheck - 2>/dev/null',
+      { stdio: "pipe", timeout: 30_000, shell: "/bin/bash" }
+    );
     return true;
   } catch {
     return false;
   }
 })();
 
-describe.skipIf(!hasSwift)("Swift bridge build", () => {
+describe.skipIf(!hasFoundationModels)("Swift bridge build", () => {
   test("swift build -c release succeeds", () => {
     // This is the exact command `pnpm run bridge:build` runs
     execSync("swift build -c release", {
