@@ -68,7 +68,7 @@ When `stream: true`, output is newline-delimited JSON (NDJSON):
 {"type":"done","content":"Paris","prompt_tokens":12,"completion_tokens":3,"finish_reason":"stop"}
 ```
 
-**Structured generation mode:** When a `schema` field is present in the input JSON, the bridge uses `@Generable` guided generation instead of free-form text:
+**Structured generation mode:** When a `schema` field is present in the input JSON, the bridge injects the schema into the system prompt and instructs the model to produce valid JSON (Tier 1). For schemas matching pre-built templates, the bridge uses true `@Generable` constrained generation (Tier 2, future). Example:
 
 ```json
 {
@@ -225,12 +225,20 @@ Structured output via guided generation. The model is constrained to produce val
 
 **Schema support:**
 - `type`: string, number, integer, boolean, object, array
-- `enum`: constrained string values → maps to `@Guide(anyOf:)`
-- `minimum`/`maximum`: numeric ranges → maps to `@Guide(range:)`
-- `pattern`: regex constraints → maps to `@Guide(pattern:)`
-- `minItems`/`maxItems`: array length constraints → maps to `@Guide(count:)`
+- `enum`: constrained string values
+- `minimum`/`maximum`: numeric ranges
+- `pattern`: regex constraints
+- `minItems`/`maxItems`: array length constraints
 - `required`: required properties
-- Nested objects: recursive `@Generable` types
+- Nested objects
+
+**Implementation note — `@Generable` is compile-time only:**
+
+Apple's `@Generable` macro generates type constraints at compile time. You cannot dynamically create `@Generable` types from an arbitrary JSON schema at runtime. Therefore, structured generation uses a two-tier approach:
+
+1. **Tier 1 (v1): Prompt-based JSON mode.** The bridge injects the JSON schema into the system prompt, instructing the model to produce valid JSON matching it. The TypeScript layer validates the response against the schema before returning. This is the same approach used by OpenAI's JSON mode and works well in practice.
+
+2. **Tier 2 (future): Pre-built `@Generable` templates.** For high-value, frequently-used patterns (classification, entity extraction, sentiment analysis), ship pre-compiled `@Generable` types in the bridge that provide true constrained generation. The TypeScript layer selects the matching template when the incoming schema fits a known shape, falls back to Tier 1 otherwise.
 
 **Example:**
 
