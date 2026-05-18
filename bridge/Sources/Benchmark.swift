@@ -72,8 +72,6 @@ enum AvailabilityCheck {
                 reasonString = "unknown"
             }
             return AvailabilityOutput(available: false, reason: reasonString)
-        default:
-            return AvailabilityOutput(available: false, reason: "unknown")
         }
     }
 }
