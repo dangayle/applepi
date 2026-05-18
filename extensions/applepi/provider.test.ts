@@ -375,6 +375,46 @@ describe("createProviderConfig", () => {
     expect(doneEvent.message.content[0].text).toBe("Hello world");
   });
 
+  test("streamSimple passes long user messages to bridge unchanged (bridge handles truncation)", async () => {
+    const config = createProviderConfig(mockBridge);
+
+    const mockStream = (async function* () {
+      yield {
+        type: "done" as const,
+        content: "ok",
+        prompt_tokens: 1,
+        completion_tokens: 1,
+        finish_reason: "stop",
+        truncated: true,
+        context_size: 4096,
+      };
+    })();
+    vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
+
+    const model = {
+      id: "apple-intelligence",
+      api: "apple-intelligence-api",
+      provider: "apple-intelligence",
+      baseUrl: "",
+      maxTokens: 4096,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as any;
+
+    // Create a user message that's way over 4096 tokens
+    const longMessage = "word ".repeat(5000);
+    const context = {
+      messages: [{ role: "user", content: longMessage }],
+      systemPrompt: "",
+    } as any;
+
+    const stream = config.streamSimple(model, context);
+    for await (const _event of stream) { /* consume */ }
+
+    const callArgs = vi.mocked(mockBridge as any).stream.mock.calls[0][0];
+    // TS layer passes prompt through unchanged — Swift bridge handles truncation
+    expect(callArgs.prompt).toBe(longMessage);
+  });
+
   test("streamSimple calls bridge.stream not bridge.run", async () => {
     const config = createProviderConfig(mockBridge);
 

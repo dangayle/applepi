@@ -14,15 +14,22 @@ enum Generation {
             session = LanguageModelSession()
         }
 
-        let prompt = input.prompt
-        let response = try await session.respond(to: prompt)
+        // Apple TN3193: Budget tokens and truncate before sending to the model
+        let prepared = await ContextManager.prepare(
+            prompt: input.prompt,
+            instructions: instructions
+        )
+
+        let response = try await session.respond(to: prepared.prompt)
 
         return BridgeOutput(
             content: response.content,
             structured: nil,
-            promptTokens: 0,
+            promptTokens: prepared.promptTokens,
             completionTokens: 0,
-            finishReason: "stop"
+            finishReason: "stop",
+            truncated: prepared.truncated,
+            contextSize: prepared.contextSize
         )
     }
 
@@ -36,10 +43,15 @@ enum Generation {
             session = LanguageModelSession()
         }
 
-        let prompt = input.prompt
+        // Apple TN3193: Budget tokens and truncate before sending to the model
+        let prepared = await ContextManager.prepare(
+            prompt: input.prompt,
+            instructions: instructions
+        )
+
         var fullContent = ""
 
-        let responseStream = session.streamResponse(to: prompt)
+        let responseStream = session.streamResponse(to: prepared.prompt)
         for try await partial in responseStream {
             let newContent = partial.content
             if newContent.count > fullContent.count {
@@ -53,9 +65,11 @@ enum Generation {
         let done = StreamDone(
             type: "done",
             content: fullContent,
-            promptTokens: 0,
+            promptTokens: prepared.promptTokens,
             completionTokens: 0,
-            finishReason: "stop"
+            finishReason: "stop",
+            truncated: prepared.truncated,
+            contextSize: prepared.contextSize
         )
         writeJSON(done)
     }

@@ -26,7 +26,15 @@ enum SchemaGeneration {
 
         let instructions = Instructions(systemPrompt)
         let session = LanguageModelSession(instructions: instructions)
-        let response = try await session.respond(to: input.prompt)
+
+        // Apple TN3193: Budget tokens and truncate before sending to the model.
+        // Schema instructions take significant tokens — budget the user prompt accordingly.
+        let prepared = await ContextManager.prepare(
+            prompt: input.prompt,
+            instructions: instructions
+        )
+
+        let response = try await session.respond(to: prepared.prompt)
 
         var content = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -53,9 +61,11 @@ enum SchemaGeneration {
         return BridgeOutput(
             content: content,
             structured: structured,
-            promptTokens: 0,
+            promptTokens: prepared.promptTokens,
             completionTokens: 0,
-            finishReason: "stop"
+            finishReason: "stop",
+            truncated: prepared.truncated,
+            contextSize: prepared.contextSize
         )
     }
 }

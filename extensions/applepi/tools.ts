@@ -59,6 +59,8 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+      // Prompt is sent as-is to the Swift bridge, which handles token budgeting
+      // and truncation using Apple's real tokenCount(for:) API (TN3193).
       const input: BridgeInput = {
         prompt: params.prompt,
         system_prompt: params.system_prompt,
@@ -72,6 +74,8 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
         let promptTokens = 0;
         let completionTokens = 0;
         let finishReason = "stop";
+        let truncated = false;
+        let contextSize: number | undefined;
 
         for await (const event of bridge.stream(input)) {
           if (event.type === "delta") {
@@ -81,6 +85,8 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
             promptTokens = event.prompt_tokens;
             completionTokens = event.completion_tokens;
             finishReason = event.finish_reason;
+            truncated = (event as any).truncated ?? false;
+            contextSize = (event as any).context_size;
           }
         }
 
@@ -88,6 +94,8 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
           finish_reason: finishReason,
+          truncated,
+          ...(contextSize != null && { context_size: contextSize }),
         });
       }
 
@@ -96,6 +104,8 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
         prompt_tokens: result.prompt_tokens,
         completion_tokens: result.completion_tokens,
         finish_reason: result.finish_reason,
+        truncated: result.truncated ?? false,
+        ...(result.context_size != null && { context_size: result.context_size }),
       });
     },
   };

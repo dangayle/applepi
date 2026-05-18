@@ -201,6 +201,75 @@ describe("createTools", () => {
         )
       ).rejects.toThrow(/guardrails/);
     });
+
+    test("sends prompt as-is to bridge (bridge handles truncation)", async () => {
+      const tool = tools.find((t) => t.name === "applepi_query")!;
+      vi.mocked(mockBridge.run).mockResolvedValue({
+        content: "ok",
+        prompt_tokens: 1,
+        completion_tokens: 1,
+        finish_reason: "stop",
+        truncated: true,
+        context_size: 4096,
+      });
+
+      const longPrompt = "word ".repeat(5000);
+      await tool.execute(
+        "call-1",
+        { prompt: longPrompt },
+        new AbortController().signal,
+        vi.fn(),
+        {} as any
+      );
+
+      const callArgs = vi.mocked(mockBridge.run).mock.calls[0][0];
+      // TS layer passes prompt through unchanged — Swift bridge handles truncation
+      expect(callArgs.prompt).toBe(longPrompt);
+    });
+
+    test("surfaces truncated flag from bridge in result details", async () => {
+      const tool = tools.find((t) => t.name === "applepi_query")!;
+      vi.mocked(mockBridge.run).mockResolvedValue({
+        content: "ok",
+        prompt_tokens: 100,
+        completion_tokens: 5,
+        finish_reason: "stop",
+        truncated: true,
+        context_size: 4096,
+      });
+
+      const result = await tool.execute(
+        "call-1",
+        { prompt: "hello" },
+        new AbortController().signal,
+        vi.fn(),
+        {} as any
+      );
+
+      expect(result.details.truncated).toBe(true);
+      expect(result.details.context_size).toBe(4096);
+    });
+
+    test("surfaces truncated=false when bridge did not truncate", async () => {
+      const tool = tools.find((t) => t.name === "applepi_query")!;
+      vi.mocked(mockBridge.run).mockResolvedValue({
+        content: "ok",
+        prompt_tokens: 10,
+        completion_tokens: 5,
+        finish_reason: "stop",
+        truncated: false,
+      });
+
+      const result = await tool.execute(
+        "call-1",
+        { prompt: "hi" },
+        new AbortController().signal,
+        vi.fn(),
+        {} as any
+      );
+
+      expect(result.details.truncated).toBe(false);
+    });
   });
 
   describe("applepi_generate", () => {

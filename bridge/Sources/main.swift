@@ -40,6 +40,32 @@ func main() async {
         exit(0)
     }
 
+    // --context-size: report the model's context window size (Apple TN3193)
+    if args.contains("--context-size") {
+        let model = SystemLanguageModel.default
+        // contextSize is Int? — use 4096 as fallback for older OS versions
+        let size = model.contextSize ?? 4096
+        writeJSON(ContextSizeOutput(contextSize: size))
+        exit(0)
+    }
+
+    // --token-count: count tokens for text provided via stdin (Apple TN3193)
+    if args.contains("--token-count") {
+        guard let text = readStdin() else {
+            exitWithCode(2, error: "usage_error", message: "No text provided on stdin for token counting")
+        }
+        let model = SystemLanguageModel.default
+        // tokenCount(for:) takes Instructions — wrap the text
+        let instructions = Instructions(text)
+        do {
+            let count = try await model.tokenCount(for: instructions)
+            writeJSON(TokenCountOutput(tokenCount: count))
+            exit(0)
+        } catch {
+            exitWithCode(1, error: "runtime_error", message: "Failed to count tokens: \(error.localizedDescription)")
+        }
+    }
+
     // Default: generation mode — read input from stdin
     guard let stdinString = readStdin(),
           let stdinData = stdinString.data(using: .utf8) else {

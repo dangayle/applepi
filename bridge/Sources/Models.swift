@@ -30,6 +30,8 @@ struct BridgeOutput: Codable {
     let promptTokens: Int
     let completionTokens: Int
     let finishReason: String
+    var truncated: Bool?
+    var contextSize: Int?
 
     enum CodingKeys: String, CodingKey {
         case content
@@ -37,6 +39,8 @@ struct BridgeOutput: Codable {
         case promptTokens = "prompt_tokens"
         case completionTokens = "completion_tokens"
         case finishReason = "finish_reason"
+        case truncated
+        case contextSize = "context_size"
     }
 }
 
@@ -53,12 +57,16 @@ struct StreamDone: Codable {
     let promptTokens: Int
     let completionTokens: Int
     let finishReason: String
+    var truncated: Bool?
+    var contextSize: Int?
 
     enum CodingKeys: String, CodingKey {
         case type, content
         case promptTokens = "prompt_tokens"
         case completionTokens = "completion_tokens"
         case finishReason = "finish_reason"
+        case truncated
+        case contextSize = "context_size"
     }
 }
 
@@ -89,6 +97,24 @@ struct BenchmarkOutput: Codable {
 struct AvailabilityOutput: Codable {
     let available: Bool
     let reason: String?
+}
+
+/// Context size output
+struct ContextSizeOutput: Codable {
+    let contextSize: Int
+
+    enum CodingKeys: String, CodingKey {
+        case contextSize = "context_size"
+    }
+}
+
+/// Token count output
+struct TokenCountOutput: Codable {
+    let tokenCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case tokenCount = "token_count"
+    }
 }
 
 // MARK: - AnyCodable helper for arbitrary JSON

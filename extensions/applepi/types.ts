@@ -17,6 +17,10 @@ export interface BridgeOutput {
   prompt_tokens: number;
   completion_tokens: number;
   finish_reason: string;
+  /** Whether the prompt was truncated to fit the context window (set by Swift bridge) */
+  truncated?: boolean;
+  /** The model's context window size in tokens (set by Swift bridge) */
+  context_size?: number;
 }
 
 /** Streaming delta (NDJSON line) */
@@ -32,6 +36,10 @@ export interface BridgeStreamDone {
   prompt_tokens: number;
   completion_tokens: number;
   finish_reason: string;
+  /** Whether the prompt was truncated to fit the context window (set by Swift bridge) */
+  truncated?: boolean;
+  /** The model's context window size in tokens (set by Swift bridge) */
+  context_size?: number;
 }
 
 /** Union type for all streaming events */
@@ -50,6 +58,16 @@ export interface BridgeBenchmarkOutput {
   latency_ms: number;
   prompt_tokens: number;
   completion_tokens: number;
+}
+
+/** Context size output */
+export interface BridgeContextSizeOutput {
+  context_size: number;
+}
+
+/** Token count output */
+export interface BridgeTokenCountOutput {
+  token_count: number;
 }
 
 /** Availability check output */

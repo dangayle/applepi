@@ -246,6 +246,72 @@ describe("BridgeManager — benchmark", () => {
   });
 });
 
+describe("BridgeManager — contextSize", () => {
+  let bridge: BridgeManager;
+
+  beforeEach(() => {
+    bridge = new BridgeManager("/fake/bridge");
+    vi.clearAllMocks();
+    mockedFs.existsSync.mockReturnValue(true);
+  });
+
+  test("returns context size from bridge", async () => {
+    const output = JSON.stringify({ context_size: 4096 });
+    mockedCp.spawn.mockReturnValue(createMockProcess(output));
+
+    const size = await bridge.contextSize();
+    expect(size).toBe(4096);
+  });
+
+  test("passes --context-size flag to bridge binary", async () => {
+    const output = JSON.stringify({ context_size: 4096 });
+    mockedCp.spawn.mockReturnValue(createMockProcess(output));
+
+    await bridge.contextSize();
+    expect(mockedCp.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      ["--context-size"],
+      expect.anything()
+    );
+  });
+});
+
+describe("BridgeManager — tokenCount", () => {
+  let bridge: BridgeManager;
+
+  beforeEach(() => {
+    bridge = new BridgeManager("/fake/bridge");
+    vi.clearAllMocks();
+    mockedFs.existsSync.mockReturnValue(true);
+  });
+
+  test("returns token count for a given text", async () => {
+    const output = JSON.stringify({ token_count: 42 });
+    mockedCp.spawn.mockReturnValue(createMockProcess(output));
+
+    const count = await bridge.tokenCount("Hello, how are you?");
+    expect(count).toBe(42);
+  });
+
+  test("passes --token-count flag and text via stdin", async () => {
+    const output = JSON.stringify({ token_count: 10 });
+    const mockProc = createMockProcess(output);
+    const writeSpy = vi.spyOn(mockProc.stdin as any, "write");
+    mockedCp.spawn.mockReturnValue(mockProc);
+
+    await bridge.tokenCount("test input");
+
+    expect(mockedCp.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      ["--token-count"],
+      expect.anything()
+    );
+    expect(writeSpy).toHaveBeenCalled();
+    const written = writeSpy.mock.calls[0][0] as string;
+    expect(written).toBe("test input");
+  });
+});
+
 describe("BridgeManager — stream", () => {
   let bridge: BridgeManager;
 
