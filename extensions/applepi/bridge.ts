@@ -166,4 +166,109 @@ export class BridgeManager {
     ]);
     return this.handleResult<BridgeBenchmarkOutput>(stdout, stderr, exitCode);
   }
+
+  /** Runs a generation request with streaming, yielding events as they arrive */
+  async *stream(
+    input: BridgeInput
+  ): AsyncGenerator<BridgeStreamEvent, void, unknown> {
+    this.ensureBinary();
+
+    const streamInput = { ...input, stream: true };
+    const proc = childProcess.spawn(this.getBinaryPath(), [], {
+      cwd: this.bridgeDir,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stderr = "";
+    let timedOut = false;
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      proc.kill("SIGTERM");
+    }, BridgeManager.TIMEOUT_MS);
+
+    proc.stderr!.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    proc.stdin!.write(JSON.stringify(streamInput));
+    proc.stdin!.end();
+
+    // Read stdout line-by-line and yield parsed events
+    let buffer = "";
+    const lines: string[] = [];
+    let resolveData: (() => void) | null = null;
+    let done = false;
+    let exitCode: number | null = null;
+
+    proc.stdout!.on("data", (chunk: Buffer) => {
+      buffer += chunk.toString();
+      const parts = buffer.split("\n");
+      buffer = parts.pop()!; // last element is incomplete or empty
+      for (const line of parts) {
+        if (line.trim()) {
+          lines.push(line);
+        }
+      }
+      if (resolveData) resolveData();
+    });
+
+    proc.on("close", (code: number | null) => {
+      clearTimeout(timer);
+      exitCode = code;
+      done = true;
+      // Flush remaining buffer
+      if (buffer.trim()) {
+        lines.push(buffer.trim());
+        buffer = "";
+      }
+      if (resolveData) resolveData();
+    });
+
+    proc.on("error", (err: Error) => {
+      clearTimeout(timer);
+      done = true;
+      exitCode = 1;
+      stderr = err.message;
+      if (resolveData) resolveData();
+    });
+
+    // Yield events as lines arrive
+    while (true) {
+      while (lines.length > 0) {
+        const line = lines.shift()!;
+        try {
+          yield JSON.parse(line) as BridgeStreamEvent;
+        } catch {
+          // skip unparseable lines
+        }
+      }
+
+      if (done) break;
+
+      // Wait for more data or close
+      await new Promise<void>((resolve) => {
+        resolveData = resolve;
+      });
+      resolveData = null;
+    }
+
+    // Check for errors after process exits
+    if (timedOut) {
+      throw new Error(bridgeErrorMessage("timeout"));
+    }
+
+    if (exitCode !== 0 && exitCode !== null) {
+      let errorCode = BRIDGE_EXIT_CODES[exitCode] ?? "unknown";
+      try {
+        const parsed = JSON.parse(stderr);
+        if (parsed.error) {
+          errorCode = parsed.error;
+        }
+      } catch {
+        // use exit code mapping
+      }
+      throw new Error(bridgeErrorMessage(errorCode));
+    }
+  }
 }

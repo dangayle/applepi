@@ -245,3 +245,111 @@ describe("BridgeManager — benchmark", () => {
     expect(result.latency_ms).toBe(1850);
   });
 });
+
+describe("BridgeManager — stream", () => {
+  let bridge: BridgeManager;
+
+  beforeEach(() => {
+    bridge = new BridgeManager("/fake/bridge");
+    vi.clearAllMocks();
+    mockedFs.existsSync.mockReturnValue(true);
+  });
+
+  test("yields delta events as lines arrive", async () => {
+    const ndjson = [
+      '{"type":"delta","content":"Hel"}',
+      '{"type":"delta","content":"lo"}',
+      '{"type":"done","content":"Hello","prompt_tokens":5,"completion_tokens":2,"finish_reason":"stop"}',
+    ].join("\n") + "\n";
+
+    mockedCp.spawn.mockReturnValue(createMockProcess(ndjson));
+
+    const events: any[] = [];
+    for await (const event of bridge.stream({ prompt: "Hi" })) {
+      events.push(event);
+    }
+
+    expect(events).toHaveLength(3);
+    expect(events[0]).toEqual({ type: "delta", content: "Hel" });
+    expect(events[1]).toEqual({ type: "delta", content: "lo" });
+    expect(events[2]).toEqual({
+      type: "done",
+      content: "Hello",
+      prompt_tokens: 5,
+      completion_tokens: 2,
+      finish_reason: "stop",
+    });
+  });
+
+  test("sends input with stream: true to stdin", async () => {
+    const ndjson =
+      '{"type":"done","content":"ok","prompt_tokens":1,"completion_tokens":1,"finish_reason":"stop"}\n';
+
+    const mockProc = createMockProcess(ndjson);
+    const writeSpy = vi.spyOn(mockProc.stdin as any, "write");
+    mockedCp.spawn.mockReturnValue(mockProc);
+
+    const events: any[] = [];
+    for await (const event of bridge.stream({ prompt: "test" })) {
+      events.push(event);
+    }
+
+    expect(writeSpy).toHaveBeenCalled();
+    const written = writeSpy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(written);
+    expect(parsed.stream).toBe(true);
+    expect(parsed.prompt).toBe("test");
+  });
+
+  test("throws on non-zero exit code", async () => {
+    const stderrJson = JSON.stringify({
+      error: "guardrail_blocked",
+      message: "Blocked",
+    });
+
+    mockedCp.spawn.mockReturnValue(createMockProcess("", stderrJson, 3));
+
+    const events: any[] = [];
+    await expect(async () => {
+      for await (const event of bridge.stream({ prompt: "bad" })) {
+        events.push(event);
+      }
+    }).rejects.toThrow(/safety guardrails/);
+  });
+
+  test("skips empty lines in NDJSON", async () => {
+    const ndjson = [
+      '{"type":"delta","content":"Hi"}',
+      "",
+      '{"type":"done","content":"Hi","prompt_tokens":1,"completion_tokens":1,"finish_reason":"stop"}',
+      "",
+    ].join("\n");
+
+    mockedCp.spawn.mockReturnValue(createMockProcess(ndjson));
+
+    const events: any[] = [];
+    for await (const event of bridge.stream({ prompt: "Hi" })) {
+      events.push(event);
+    }
+
+    expect(events).toHaveLength(2);
+  });
+
+  test("ensures binary is built before streaming", async () => {
+    mockedFs.existsSync.mockReturnValue(false);
+    mockedCp.execSync.mockReturnValue(Buffer.from("Build complete!"));
+
+    const ndjson =
+      '{"type":"done","content":"ok","prompt_tokens":1,"completion_tokens":1,"finish_reason":"stop"}\n';
+    mockedCp.spawn.mockReturnValue(createMockProcess(ndjson));
+
+    for await (const _event of bridge.stream({ prompt: "hi" })) {
+      // consume
+    }
+
+    expect(mockedCp.execSync).toHaveBeenCalledWith(
+      "swift build -c release",
+      expect.anything()
+    );
+  });
+});
