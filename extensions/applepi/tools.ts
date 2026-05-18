@@ -51,6 +51,12 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
       max_tokens: Type.Optional(
         Type.Number({ description: "Maximum response tokens" })
       ),
+      stream: Type.Optional(
+        Type.Boolean({
+          description: "Stream response token-by-token (reduces time-to-first-byte)",
+          default: false,
+        })
+      ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const input: BridgeInput = {
@@ -60,6 +66,31 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
         temperature: params.temperature ?? null,
         max_tokens: params.max_tokens ?? null,
       };
+
+      if (params.stream) {
+        let content = "";
+        let promptTokens = 0;
+        let completionTokens = 0;
+        let finishReason = "stop";
+
+        for await (const event of bridge.stream(input)) {
+          if (event.type === "delta") {
+            content += event.content;
+          } else if (event.type === "done") {
+            content = event.content;
+            promptTokens = event.prompt_tokens;
+            completionTokens = event.completion_tokens;
+            finishReason = event.finish_reason;
+          }
+        }
+
+        return textResult(content, {
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          finish_reason: finishReason,
+        });
+      }
+
       const result = await bridge.run(input);
       return textResult(result.content, {
         prompt_tokens: result.prompt_tokens,

@@ -13,6 +13,7 @@ describe("createTools", () => {
       run: vi.fn(),
       check: vi.fn(),
       benchmark: vi.fn(),
+      stream: vi.fn(),
       ensureBinary: vi.fn(),
       getBinaryPath: vi.fn().mockReturnValue("/fake/path"),
       isBinaryBuilt: vi.fn().mockReturnValue(true),
@@ -96,6 +97,92 @@ describe("createTools", () => {
           max_tokens: 100,
         })
       );
+    });
+
+    test("uses bridge.stream when stream option is true", async () => {
+      const tool = tools.find((t) => t.name === "applepi_query")!;
+
+      const mockStream = (async function* () {
+        yield { type: "delta" as const, content: "Hel" };
+        yield { type: "delta" as const, content: "lo" };
+        yield {
+          type: "done" as const,
+          content: "Hello",
+          prompt_tokens: 5,
+          completion_tokens: 2,
+          finish_reason: "stop",
+        };
+      })();
+
+      vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
+
+      const result = await tool.execute(
+        "call-1",
+        { prompt: "Hi", stream: true },
+        new AbortController().signal,
+        vi.fn(),
+        {} as any
+      );
+
+      expect((mockBridge as any).stream).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: "Hi" })
+      );
+      expect(result.content[0]).toEqual(
+        expect.objectContaining({ type: "text", text: "Hello" })
+      );
+    });
+
+    test("stream mode returns token counts from done event", async () => {
+      const tool = tools.find((t) => t.name === "applepi_query")!;
+
+      const mockStream = (async function* () {
+        yield {
+          type: "done" as const,
+          content: "Hi",
+          prompt_tokens: 10,
+          completion_tokens: 3,
+          finish_reason: "stop",
+        };
+      })();
+
+      vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
+
+      const result = await tool.execute(
+        "call-1",
+        { prompt: "Hey", stream: true },
+        new AbortController().signal,
+        vi.fn(),
+        {} as any
+      );
+
+      expect(result.details).toEqual(
+        expect.objectContaining({
+          prompt_tokens: 10,
+          completion_tokens: 3,
+          finish_reason: "stop",
+        })
+      );
+    });
+
+    test("defaults to non-streaming (bridge.run)", async () => {
+      const tool = tools.find((t) => t.name === "applepi_query")!;
+      vi.mocked(mockBridge.run).mockResolvedValue({
+        content: "Paris",
+        prompt_tokens: 12,
+        completion_tokens: 3,
+        finish_reason: "stop",
+      });
+
+      await tool.execute(
+        "call-1",
+        { prompt: "capital of France?" },
+        new AbortController().signal,
+        vi.fn(),
+        {} as any
+      );
+
+      expect(mockBridge.run).toHaveBeenCalled();
+      expect((mockBridge as any).stream).not.toHaveBeenCalled();
     });
 
     test("throws on failure (Pi sets isError automatically)", async () => {
