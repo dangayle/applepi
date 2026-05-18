@@ -20,4 +20,21 @@ export default function applepi(pi: any) {
   // Register custom provider
   const providerConfig = createProviderConfig(bridge);
   pi.registerProvider("apple-intelligence", providerConfig);
+
+  // Register /apple slash command for quick one-shot queries
+  pi.registerCommand("apple", {
+    description: "Quick Apple Intelligence query — no context, single response",
+    handler: async (args: string, ctx: any) => {
+      if (!args?.trim()) {
+        ctx.ui.notify("Usage: /apple <your prompt>", "warn");
+        return;
+      }
+      try {
+        const result = await bridge.run({ prompt: args.trim() });
+        ctx.ui.notify(result.content, "info");
+      } catch (err: any) {
+        ctx.ui.notify(err.message, "error");
+      }
+    },
+  });
 }

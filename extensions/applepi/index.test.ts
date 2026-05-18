@@ -44,6 +44,7 @@ describe("extension entry point", () => {
       registerProvider: vi.fn((name: string, config: any) =>
         registerProviderCalls.push({ name, config })
       ),
+      registerCommand: vi.fn(),
       on: vi.fn(),
     };
 
@@ -103,6 +104,13 @@ describe("extension entry point", () => {
     expect(mockPi.registerProvider).toHaveBeenCalledWith(
       "apple-intelligence",
       expect.objectContaining({ name: "Apple Intelligence" })
+    );
+  });
+
+  test("registers the /apple command", () => {
+    expect(mockPi.registerCommand).toHaveBeenCalledWith(
+      "apple",
+      expect.objectContaining({ description: expect.stringContaining("Quick") })
     );
   });
 });
