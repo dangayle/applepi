@@ -6,11 +6,7 @@
 ## Install
 
 ```bash
-# From npm
 pi install npm:@dangayle/applepi
-
-# From GitHub
-pi install github.com/dangayle/applepi
 ```
 
 ## What You Get
