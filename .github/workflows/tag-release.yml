@@ -1,0 +1,40 @@
+name: Tag release on version bump
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "package.json"
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if version changed and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PREV=$(git show HEAD~1:package.json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" || echo "")
+          CURR=$(node -p "require('./package.json').version")
+          echo "Previous: $PREV"
+          echo "Current:  $CURR"
+          if [ "$PREV" = "$CURR" ]; then
+            echo "Version unchanged, no tag to create."
+            exit 0
+          fi
+          if git rev-parse "v$CURR" >/dev/null 2>&1; then
+            echo "Tag v$CURR already exists, skipping."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$CURR" -m "v$CURR"
+          git push origin "v$CURR"
+          echo "Tagged v$CURR"
