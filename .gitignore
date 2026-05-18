@@ -5,3 +5,4 @@ bridge/.build/
 *.swp
 *.swo
 coverage/
+RESEARCH-small-model-context.md
