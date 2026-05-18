@@ -1,12 +1,29 @@
 {
-  "name": "applepi",
+  "name": "@dangayle/applepi",
   "version": "0.1.0",
   "description": "On-device Apple Intelligence as a Pi tool and model provider",
   "keywords": [
-    "pi-package"
+    "pi-package",
+    "apple-intelligence",
+    "on-device-ai",
+    "foundationmodels"
   ],
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dangayle/applepi"
+  },
+  "files": [
+    "extensions/**/*.ts",
+    "!extensions/**/*.test.ts",
+    "extensions/applepi/README.md",
+    "bridge/Package.swift",
+    "bridge/Sources/",
+    "README.md",
+    "LICENSE",
+    "AGENTS.md"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",

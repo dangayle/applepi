@@ -6,6 +6,10 @@
 ## Install
 
 ```bash
+# From npm
+pi install npm:@dangayle/applepi
+
+# From GitHub
 pi install github.com/dangayle/applepi
 ```
 
@@ -29,6 +33,14 @@ Use Apple Intelligence like any other model in Pi:
 
 Route lightweight tasks to the free on-device model, heavy tasks to Claude.
 
+### Slash Command
+
+Quick one-shot query with no context — doesn't enter the conversation:
+
+```
+/apple What is the capital of France?
+```
+
 ## Requirements
 
 - macOS 26+ (Tahoe)
@@ -40,9 +52,9 @@ Route lightweight tasks to the free on-device model, heavy tasks to Claude.
 
 `applepi` has two components:
 
-1. **Swift Bridge** — A minimal CLI (~100 lines) wrapping Apple's `LanguageModelSession`. JSON in via stdin, JSON out via stdout. Built automatically on first use.
+1. **Swift Bridge** — A minimal CLI wrapping Apple's `LanguageModelSession`. JSON in via stdin, JSON out via stdout. Built automatically on first use.
 
-2. **Pi Extension** — TypeScript that registers tools and the model provider with Pi. Manages the Swift binary lifecycle, error handling, and output formatting.
+2. **Pi Extension** — TypeScript that registers tools, model provider, and the `/apple` command with Pi. Manages the Swift binary lifecycle, error handling, streaming, and output formatting.
 
 No HTTP servers, no API keys, no code signing. The on-device model runs entirely on your Mac's Neural Engine.
 
