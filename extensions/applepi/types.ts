@@ -90,6 +90,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Failed to decode model output. Try simplifying the request.",
   unsupported_guide:
     "The generation guide/schema is not supported.",
+  usage_error:
+    "Invalid input to the Apple Intelligence bridge. Check the prompt and schema format.",
 };
 
 const DEFAULT_ERROR_MESSAGE =

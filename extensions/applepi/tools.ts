@@ -121,9 +121,19 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+      // Schema may arrive as a JSON string from the LLM tool call — parse it
+      let schema = params.schema;
+      if (typeof schema === "string") {
+        try {
+          schema = JSON.parse(schema);
+        } catch {
+          throw new Error("Invalid JSON schema: could not parse the schema string.");
+        }
+      }
+
       const input: BridgeInput = {
         prompt: params.prompt,
-        schema: params.schema,
+        schema,
         system_prompt: params.system_prompt,
         permissive: params.permissive,
       };

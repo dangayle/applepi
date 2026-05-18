@@ -242,6 +242,50 @@ describe("createTools", () => {
         expect.objectContaining({ type: "text" })
       );
     });
+
+    test("parses schema from JSON string if LLM sends it as string", async () => {
+      const tool = tools.find((t) => t.name === "applepi_generate")!;
+      const schemaObj = {
+        type: "object",
+        properties: { severity: { type: "string" } },
+        required: ["severity"],
+      };
+      const schemaStr = JSON.stringify(schemaObj);
+
+      vi.mocked(mockBridge.run).mockResolvedValue({
+        content: '{"severity":"high"}',
+        structured: { severity: "high" },
+        prompt_tokens: 18,
+        completion_tokens: 12,
+        finish_reason: "stop",
+      });
+
+      await tool.execute(
+        "call-1",
+        { prompt: "classify this", schema: schemaStr },
+        new AbortController().signal,
+        vi.fn(),
+        {} as any
+      );
+
+      expect(mockBridge.run).toHaveBeenCalledWith(
+        expect.objectContaining({ schema: schemaObj })
+      );
+    });
+
+    test("throws on invalid schema string", async () => {
+      const tool = tools.find((t) => t.name === "applepi_generate")!;
+
+      await expect(
+        tool.execute(
+          "call-1",
+          { prompt: "classify", schema: "not valid json{" },
+          new AbortController().signal,
+          vi.fn(),
+          {} as any
+        )
+      ).rejects.toThrow(/Invalid JSON schema/);
+    });
   });
 
   describe("applepi_benchmark", () => {
