@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v0.2.0). Defaults to the ref if on a tag."
+        required: false
 
 permissions:
   contents: write # required for creating GitHub releases
@@ -14,7 +18,25 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          # workflow_dispatch from tag-release passes the tag as the ref;
+          # manual triggers can also pass it as an input.
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" != v* ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          if [[ -z "$TAG" || "$TAG" != v* ]]; then
+            echo "::error::Could not determine tag. GITHUB_REF_NAME=${GITHUB_REF_NAME}, inputs.tag=${{ github.event.inputs.tag }}"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
 
       - uses: pnpm/action-setup@v4
 
@@ -47,4 +69,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
           generate_release_notes: true
