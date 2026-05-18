@@ -1,6 +1,6 @@
 {
   "name": "@dangayle/applepi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "On-device Apple Intelligence as a Pi tool and model provider",
   "keywords": [
     "pi-package",
@@ -8,6 +8,7 @@
     "on-device-ai",
     "foundationmodels"
   ],
+  "packageManager": "pnpm@10.33.0",
   "license": "MIT",
   "type": "module",
   "repository": {

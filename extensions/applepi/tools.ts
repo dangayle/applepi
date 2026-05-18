@@ -168,7 +168,7 @@ export function createTools(bridge: BridgeManager): ToolDefinition[] {
         `Prompt tokens: ${result.prompt_tokens}`,
         `Completion tokens: ${result.completion_tokens}`,
       ];
-      return textResult(lines.join("\n"), result);
+      return textResult(lines.join("\n"), { ...result });
     },
   };
 
