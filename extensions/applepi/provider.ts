@@ -4,6 +4,17 @@ import type { AssistantMessageEventStream } from "@earendil-works/pi-ai";
 import type { BridgeManager } from "./bridge.js";
 import type { BridgeInput } from "./types.js";
 
+/**
+ * Minimal system prompt for the on-device model.
+ * Pi's full system prompt includes tool definitions, project context, skills,
+ * and guidelines that easily exceed the 4096-token context window.
+ * This compact prompt is all the on-device model needs.
+ */
+const MINIMAL_SYSTEM_PROMPT =
+  "You are a helpful, concise assistant running on-device via Apple Intelligence. " +
+  "You have a small context window, so keep responses focused and brief. " +
+  "Answer directly without attempting to invoke functions or access external systems.";
+
 /** Extracts the last user message text from the Pi message array */
 function extractPrompt(messages: any[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -55,9 +66,11 @@ function streamAppleIntelligence(
       if (!prompt) {
         throw new Error("No user message found in the conversation context.");
       }
+      // Always use the minimal system prompt — Pi's system prompt contains
+      // tool definitions and project context that overflow the 4096-token window
       const input: BridgeInput = {
         prompt,
-        ...(context.systemPrompt ? { system_prompt: context.systemPrompt } : {}),
+        system_prompt: MINIMAL_SYSTEM_PROMPT,
       };
 
       const contentIndex = 0;

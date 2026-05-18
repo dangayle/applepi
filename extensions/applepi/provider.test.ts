@@ -199,9 +199,128 @@ describe("createProviderConfig", () => {
     expect((mockBridge as any).stream).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "Second message",
-        system_prompt: "You are helpful",
       })
     );
+  });
+
+  test("streamSimple replaces Pi's bloated system prompt with a minimal one", async () => {
+    const config = createProviderConfig(mockBridge);
+
+    const mockStream = (async function* () {
+      yield { type: "delta" as const, content: "Hi" };
+      yield {
+        type: "done" as const,
+        content: "Hi",
+        prompt_tokens: 5,
+        completion_tokens: 1,
+        finish_reason: "stop",
+      };
+    })();
+    vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
+
+    const model = {
+      id: "apple-intelligence",
+      api: "apple-intelligence-api",
+      provider: "apple-intelligence",
+      baseUrl: "",
+      maxTokens: 4096,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as any;
+
+    // Simulate Pi's massive system prompt with tool definitions
+    const hugeSystemPrompt = "You are an expert coding assistant. "
+      + "Available tools:\n- read: Read file contents\n- bash: Execute bash commands\n"
+      + "- edit: Make precise file edits\n".repeat(500);
+
+    const context = {
+      messages: [{ role: "user", content: "hello" }],
+      systemPrompt: hugeSystemPrompt,
+    } as any;
+
+    const stream = config.streamSimple(model, context);
+    for await (const _event of stream) { /* consume */ }
+
+    const callArgs = vi.mocked(mockBridge as any).stream.mock.calls[0][0];
+    // Must NOT pass the huge prompt through
+    expect(callArgs.system_prompt).not.toBe(hugeSystemPrompt);
+    expect(callArgs.system_prompt.length).toBeLessThan(500);
+    // Must NOT contain tool definitions
+    expect(callArgs.system_prompt).not.toContain("Available tools");
+    expect(callArgs.system_prompt).not.toContain("bash:");
+    expect(callArgs.system_prompt).not.toContain("read:");
+  });
+
+  test("streamSimple strips tool definitions from system prompt", async () => {
+    const config = createProviderConfig(mockBridge);
+
+    const mockStream = (async function* () {
+      yield {
+        type: "done" as const,
+        content: "ok",
+        prompt_tokens: 1,
+        completion_tokens: 1,
+        finish_reason: "stop",
+      };
+    })();
+    vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
+
+    const model = {
+      id: "apple-intelligence",
+      api: "apple-intelligence-api",
+      provider: "apple-intelligence",
+      baseUrl: "",
+      maxTokens: 4096,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as any;
+
+    const context = {
+      messages: [{ role: "user", content: "What is 2+2?" }],
+      systemPrompt: "You can use these tools:\n<function>read</function>\n<function>bash</function>",
+    } as any;
+
+    const stream = config.streamSimple(model, context);
+    for await (const _event of stream) { /* consume */ }
+
+    const callArgs = vi.mocked(mockBridge as any).stream.mock.calls[0][0];
+    expect(callArgs.system_prompt).not.toContain("<function>");
+    expect(callArgs.system_prompt).not.toContain("tools");
+  });
+
+  test("streamSimple uses minimal prompt even when systemPrompt is empty", async () => {
+    const config = createProviderConfig(mockBridge);
+
+    const mockStream = (async function* () {
+      yield {
+        type: "done" as const,
+        content: "ok",
+        prompt_tokens: 1,
+        completion_tokens: 1,
+        finish_reason: "stop",
+      };
+    })();
+    vi.mocked(mockBridge as any).stream.mockReturnValue(mockStream);
+
+    const model = {
+      id: "apple-intelligence",
+      api: "apple-intelligence-api",
+      provider: "apple-intelligence",
+      baseUrl: "",
+      maxTokens: 4096,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    } as any;
+
+    const context = {
+      messages: [{ role: "user", content: "hello" }],
+      systemPrompt: "",
+    } as any;
+
+    const stream = config.streamSimple(model, context);
+    for await (const _event of stream) { /* consume */ }
+
+    const callArgs = vi.mocked(mockBridge as any).stream.mock.calls[0][0];
+    expect(callArgs.system_prompt).toBeDefined();
+    expect(callArgs.system_prompt.length).toBeGreaterThan(0);
+    expect(callArgs.system_prompt.length).toBeLessThan(500);
   });
 
   test("streamSimple yields incremental text_delta events from bridge.stream", async () => {
